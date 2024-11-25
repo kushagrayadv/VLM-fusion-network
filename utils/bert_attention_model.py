@@ -9,6 +9,7 @@ from torch import nn, Tensor
 ---------------------------------------------------------------------------------------
 """
 
+
 class BertConfig(object):
   """Configuration class to store the configuration of a `BertModel`.
   """
@@ -157,6 +158,7 @@ class BertAttentionOutput(nn.Module):
     hidden_states = self.dropout(hidden_states)
     hidden_states = self.LayerNorm(hidden_states + input_tensor)
     return hidden_states
+
 
 class BertSelfAttentionLayer(nn.Module):
   def __init__(self, config: BertConfig) -> None:
