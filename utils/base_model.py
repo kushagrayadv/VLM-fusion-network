@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import Tuple
 
 import torch
@@ -39,3 +40,9 @@ class BaseModel(nn.Module):
       masks = torch.cat([cls_mask, masks], dim=1)
 
       return outputs, masks
+
+
+  @abstractmethod
+  def forward(self, x: Tensor, mask: Tensor) -> Tensor:
+    """ This method must be implemented by subclasses. """
+    pass
