@@ -4,14 +4,14 @@ import torch
 from torch import nn, Tensor
 
 from utils.model_config import Config
-from utils.vision_sub_model import VisionSubModel
+from utils.image_sub_model import ImageSubModel
 
 
 class MSAModel(nn.Module):
   def __init__(self, config: Config) -> None:
     super().__init__()
-    self.vision_sub_model = VisionSubModel(config)
-    self.text_sub_model = VisionSubModel(config)        # TODO: change it to text sub model
+    self.vision_sub_model = ImageSubModel(config)
+    self.text_sub_model = ImageSubModel(config)        # TODO: change it to text sub model
 
     self.fused_output_layers = nn.Sequential(
       nn.Dropout(config.dropout),

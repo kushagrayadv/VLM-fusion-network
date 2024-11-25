@@ -8,12 +8,11 @@ from transformers import Data2VecVisionModel
 from utils.base_model import BaseModel
 from utils.model_config import Config
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-class VisionSubModel(BaseModel):
+class ImageSubModel(BaseModel):
   def __init__(self, config: Config) -> None:
     super().__init__(config=config)
+    self.device = config.device
     self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base")
 
 
@@ -35,9 +34,9 @@ class VisionSubModel(BaseModel):
       truncated_feature = torch.mean(hidden_states[batch][:padding_idx], dim=0)
       features.append(truncated_feature)
     
-    features = torch.stack(features, dim=0).to(device)
+    features = torch.stack(features, dim=0).to(self.device)
     
-    mask_new = torch.zeros(hidden_states.shape[0], hidden_states.shape[1]).to(device)
+    mask_new = torch.zeros(hidden_states.shape[0], hidden_states.shape[1]).to(self.device)
     for batch in range(mask_new.shape[0]):
       mask_new[batch][:mask_idx_new[batch]] = 1
       
