@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch
 from torch import Tensor
 
@@ -15,7 +17,7 @@ class VisionSubModel(BaseModel):
     self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base")
 
 
-  def forward(self, inputs: Tensor, mask: Tensor) -> Tensor:
+  def forward(self, inputs: Tensor, mask: Tensor) -> Tuple[Tensor, Tensor]:
     embeddings = self.embedding_model(inputs, mask, output_attentions=True)
     hidden_states = embeddings.hidden_state
     
@@ -46,4 +48,4 @@ class VisionSubModel(BaseModel):
     for layer_module in self.attention_encoder_layers:
       attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask)
 
-    return attention_encoder_inputs
+    return output, attention_encoder_inputs
