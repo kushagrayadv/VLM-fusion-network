@@ -1,3 +1,6 @@
+import random
+
+import numpy as np
 import torch.optim
 from torch import nn
 from torch.utils.data import DataLoader
@@ -108,3 +111,65 @@ class Trainer(object):
       eval_results['loss'] = total_loss
 
     return eval_results
+
+  def train(self):
+    random.seed(self.config.random_seed)
+    torch.manual_seed(self.config.random_seed)
+    torch.cuda.manual_seed(self.config.random_seed)
+    np.random.seed(self.config.random_seed)
+    torch.backends.cudnn.deterministic = True
+
+    # TODO: uncomment it and remove the later dataloader once data loader classes are added
+    # train_dataloader, val_dataloader, _ = data_loader(self.config.batch_size)
+    train_dataloader, val_dataloader = object, object
+
+    model = MSAModel(self.config).to(self.config.device)
+
+    # Freezing the pretrained embedding models
+    for param in model.text_sub_model.embedding_model.parameters():
+      param.requires_grad = False
+
+    for param in model.img_sub_model.embedding_model.parameters():
+      param.requires_grad = False
+
+    highest_eval_acc = 0
+    epoch = 0
+    best_epoch = 0
+    best_model = None
+
+    train_losses = []
+    val_losses = []
+    val_accs = []
+    val_f1_scores = []
+
+    for epoch in range(1, self.config.epochs + 1):
+      print(f"\n=================== Epoch {epoch} ===================")
+
+      train_loss = self.train_step(model, train_dataloader)
+      print(f"Train loss: {train_loss:.4f}")
+      eval_results = self.test_step(model, val_dataloader, mode='Validation')
+
+      if eval_results["accuracy"] >= highest_eval_acc:
+        highest_eval_acc = eval_results["accuracy"]
+        torch.save(model.state_dict(), self.config.model_save_path + f'msa_model_{highest_eval_acc}_ckpt.pth')
+        best_epoch = epoch
+        best_model = model.state_dict()
+
+      if epoch - best_epoch >= self.config.early_stop:
+        break
+
+    torch.save(best_model, self.config.model_save_path + f'msa_model_best_ckpt.pth')
+
+
+  def test(self):
+    # TODO: uncomment it and remove the later dataloader once data loader classes are added
+    # _, _, test_dataloader = data_loader(self.config.batch_size)
+    test_dataloader = object
+
+    model = MSAModel(self.config).to(self.config.device)
+    model.eval()
+
+    with torch.inference_mode():
+      model.load_state_dict(torch.load(self.config.model_save_path + f'msa_model_best_ckpt.pth'))
+      test_results = self.test_step(model, test_dataloader, mode='Test')
+      print(f"\nTest results: {test_results['accuracy']:.4f}")
