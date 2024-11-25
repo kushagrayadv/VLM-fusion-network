@@ -1,7 +1,7 @@
 import math
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 
 """
 ---------------------------------------------------------------------------------------
@@ -21,9 +21,7 @@ class BertConfig(object):
                hidden_act="relu",
                hidden_dropout_prob=0.3,
                attention_probs_dropout_prob=0.3,
-               max_position_embeddings=512,
-               add_abs_pos_emb=False,
-               add_pos_enc=False):
+               max_position_embeddings=512):
     """Constructs BertConfig.
     Args:
         hidden_size: Size of the encoder layers and the pooler layer.
@@ -53,8 +51,6 @@ class BertConfig(object):
     self.hidden_dropout_prob = hidden_dropout_prob
     self.attention_probs_dropout_prob = attention_probs_dropout_prob
     self.max_position_embeddings = max_position_embeddings
-    self.add_abs_pos_emb = add_abs_pos_emb
-    self.add_pos_enc = add_pos_enc
 
 
 BertLayerNorm = torch.nn.LayerNorm
@@ -87,11 +83,11 @@ def swish(x):
   return x * torch.sigmoid(x)
 
 
-ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish}
+ACT2FN = {"gelu": gelu, "relu": nn.functional.relu, "swish": swish}
 
 
 class BertAttention(nn.Module):
-  def __init__(self, config):
+  def __init__(self, config: BertConfig) -> None:
     super().__init__()
     if config.hidden_size % config.num_attention_heads != 0:
       raise ValueError(
@@ -105,18 +101,14 @@ class BertAttention(nn.Module):
     self.key = nn.Linear(config.hidden_size, self.all_head_size)
     self.value = nn.Linear(config.hidden_size, self.all_head_size)
 
-    self.add_abs_pos_emb = config.add_abs_pos_emb
-    if self.add_abs_pos_emb:
-      self.abs_pos_emb = nn.Parameter(torch.randn(512, self.attention_head_size))
     self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
-  def transpose_for_scores(self, x):
+  def transpose_for_scores(self, x: Tensor) -> Tensor:
     new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
     x = x.view(*new_x_shape)
     return x.permute(0, 2, 1, 3)  # (b, s,h, d) -> (b, h, s, d)
 
-  def forward(self, hidden_states, context, attention_mask=None):
-    # print(context.size(),attention_mask.size())
+  def forward(self, hidden_states: Tensor, context: Tensor, attention_mask: Tensor = None) -> Tensor:
     mixed_query_layer = self.query(hidden_states)
     mixed_key_layer = self.key(context)
     mixed_value_layer = self.value(context)
@@ -124,18 +116,11 @@ class BertAttention(nn.Module):
     query_layer = self.transpose_for_scores(mixed_query_layer)
     key_layer = self.transpose_for_scores(mixed_key_layer)
     value_layer = self.transpose_for_scores(mixed_value_layer)
-    if self.add_abs_pos_emb:
-      pos_emb = self.abs_pos_emb[0:context.size(1), :]
-      pos_emb_q = self.abs_pos_emb[0:hidden_states.size(1), :]
-      pos_emb_q = pos_emb_q.expand(query_layer.size(0), query_layer.size(1), -1, -1)
 
     # Take the dot product between "query" and "key" to get the raw attention scores.
     attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))  # shape is (b, h, s_q, s_k)
-    if self.add_abs_pos_emb:
-      attention_pos_scores = torch.matmul(query_layer + pos_emb_q, pos_emb.transpose(-1, -2))
-      attention_scores = (attention_scores + attention_pos_scores) / math.sqrt(self.attention_head_size)
-    else:
-      attention_scores = attention_scores / math.sqrt(self.attention_head_size)
+
+    attention_scores = attention_scores / math.sqrt(self.attention_head_size)
 
     # Apply the attention mask
     if attention_mask is not None:
@@ -143,8 +128,6 @@ class BertAttention(nn.Module):
       attention_mask = attention_mask.expand((-1, attention_scores.size(1), attention_scores.size(2), -1))
       attention_mask = attention_mask.masked_fill(attention_mask == 0, float('-inf'))
       attention_mask = attention_mask.masked_fill(attention_mask == 1, 0.0)
-      # print(attention_mask.size())
-      # print(attention_scores.size())
       attention_scores = attention_scores + attention_mask
 
     # Normalize the attention scores to probabilities.
@@ -158,72 +141,59 @@ class BertAttention(nn.Module):
     context_layer = context_layer.permute(0, 2, 1, 3).contiguous()  # shape is (b, s_q, h, d)
     new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
     context_layer = context_layer.view(*new_context_layer_shape)
+
     return context_layer
 
 
-class BertAttOutput(nn.Module):
-  def __init__(self, config):
-    super(BertAttOutput, self).__init__()
+class BertAttentionOutput(nn.Module):
+  def __init__(self, config: BertConfig) -> None:
+    super(BertAttentionOutput, self).__init__()
     self.dense = nn.Linear(config.hidden_size, config.hidden_size)
     self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
     self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-  def forward(self, hidden_states, input_tensor):
+  def forward(self, hidden_states: Tensor, input_tensor: Tensor) -> Tensor:
     hidden_states = self.dense(hidden_states)
     hidden_states = self.dropout(hidden_states)
     hidden_states = self.LayerNorm(hidden_states + input_tensor)
     return hidden_states
 
-
-class BertCrossattLayer(nn.Module):
-  def __init__(self, config):
-    super().__init__()
-    self.att = BertAttention(config)
-    self.output = BertAttOutput(config)
-
-  def forward(self, input_tensor, ctx_tensor, ctx_att_mask=None):
-    output = self.att(input_tensor, ctx_tensor, ctx_att_mask)
-    attention_output = self.output(output, input_tensor)  # attention_output = self.output(output, input_tensor)
-
-    return attention_output
-
-
-class BertSelfattLayer(nn.Module):
-  def __init__(self, config):
-    super(BertSelfattLayer, self).__init__()
+class BertSelfAttentionLayer(nn.Module):
+  def __init__(self, config: BertConfig) -> None:
+    super(BertSelfAttentionLayer, self).__init__()
     self.self = BertAttention(config)
-    self.output = BertAttOutput(config)
+    self.output = BertAttentionOutput(config)
 
-  def forward(self, input_tensor, attention_mask):
-    # Self attention attends to itself, thus keys and querys are the same (input_tensor).
+  def forward(self, input_tensor: Tensor, attention_mask: Tensor) -> Tensor:
+    # Self attention attends to itself, thus keys and queries are the same (input_tensor).
     self_output = self.self(input_tensor, input_tensor, attention_mask)
     attention_output = self.output(self_output, input_tensor)
     return attention_output
 
 
-class BertIntermediate(nn.Module):
-  def __init__(self, config):
-    super(BertIntermediate, self).__init__()
+class BertIntermediateLayer(nn.Module):
+  def __init__(self, config: BertConfig) -> None:
+    super(BertIntermediateLayer, self).__init__()
     self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
-    if isinstance(config.hidden_act, str) or (sys.version_info[0] == 2 and isinstance(config.hidden_act, unicode)):
+    if config.hidden_act in ACT2FN:
       self.intermediate_act_fn = ACT2FN[config.hidden_act]
     else:
-      self.intermediate_act_fn = config.hidden_act
+      self.intermediate_act_fn = nn.functional.relu
 
-  def forward(self, hidden_states):
+  def forward(self, hidden_states: Tensor) -> Tensor:
     hidden_states = self.dense(hidden_states)
     hidden_states = self.intermediate_act_fn(hidden_states)
     return hidden_states
 
 
-class BertOutput(nn.Module):
-  def __init__(self, config):
-    super(BertOutput, self).__init__()
+class BertOutputLayer(nn.Module):
+  def __init__(self, config: BertConfig) -> None:
+    super(BertOutputLayer, self).__init__()
     self.dense = nn.Linear(config.intermediate_size, config.hidden_size)
     self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
     self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
-  def forward(self, hidden_states, input_tensor):
+  def forward(self, hidden_states: Tensor, input_tensor: Tensor) -> Tensor:
     hidden_states = self.dense(hidden_states)
     hidden_states = self.dropout(hidden_states)
     hidden_states = self.LayerNorm(hidden_states + input_tensor)
@@ -231,13 +201,13 @@ class BertOutput(nn.Module):
 
 
 class BertLayer(nn.Module):
-  def __init__(self, config):
+  def __init__(self, config: BertConfig) -> None:
     super(BertLayer, self).__init__()
-    self.attention = BertSelfattLayer(config)
-    self.intermediate = BertIntermediate(config)
-    self.output = BertOutput(config)
+    self.attention = BertSelfAttentionLayer(config)
+    self.intermediate = BertIntermediateLayer(config)
+    self.output = BertOutputLayer(config)
 
-  def forward(self, hidden_states, attention_mask):
+  def forward(self, hidden_states: Tensor, attention_mask: Tensor) -> Tensor:
     attention_output = self.attention(hidden_states, attention_mask)
     intermediate_output = self.intermediate(attention_output)
     layer_output = self.output(intermediate_output, attention_output)
