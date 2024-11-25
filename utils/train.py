@@ -1,3 +1,4 @@
+import json
 import random
 
 import numpy as np
@@ -31,6 +32,7 @@ class Trainer(object):
     optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.learning_rate)
 
     total_loss = 0.0
+    total_accuracy = 0.0
 
     for batch in tqdm(dataloader):
       text_inputs = batch["text_inputs"].to(self.config.device)
@@ -45,19 +47,24 @@ class Trainer(object):
 
       loss = 0.0
       for task in self.tasks:
-        targets = batch["targets"].to(self.config.device).view(-1, 1)
+        targets = batch["targets"][task].to(self.config.device).view(-1, 1)
 
         sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets[task])
         loss += sub_loss
 
+      train_results = self.metrics.evaluate(outputs['M'], batch["targets"]['M'])
+      accuracy = train_results['accuracy']
+
       total_loss += loss.item() * text_inputs.size(0)
+      total_accuracy += accuracy * text_inputs.size(0)
 
       loss.backward()
       optimizer.step()
 
-    total_loss = round(total_loss / len(dataloader.dataset), 4)
+    total_loss = total_loss / len(dataloader.dataset)
+    total_accuracy = total_accuracy / len(dataloader.dataset)
 
-    return total_loss
+    return total_loss, total_accuracy
 
   def test_step(self, model: MSAModel, dataloader: DataLoader, mode: str):
     model.eval()
@@ -137,17 +144,21 @@ class Trainer(object):
     best_epoch = 0
     best_model = None
 
-    train_losses = []
-    val_losses = []
-    val_accs = []
-    val_f1_scores = []
+    history = {
+      "train_losses": [],
+      "train_accs": [],
+      "val_losses": [],
+      "val_accs": []
+    }
 
-    for epoch in range(1, self.config.epochs + 1):
-      print(f"\n=================== Epoch {epoch} ===================")
+    for epoch in tqdm(range(self.config.epochs)):
+      print(f"\n=================== Epoch {epoch + 1} ====================")
 
-      train_loss = self.train_step(model, train_dataloader)
-      print(f"Train loss: {train_loss:.4f}")
+      train_loss, train_acc = self.train_step(model, train_dataloader)
+      print(f"Train loss: {train_loss:.4f} | Train Accuracy: {train_acc:.4f}")
+
       eval_results = self.test_step(model, val_dataloader, mode='Validation')
+      val_loss, val_acc = eval_results['loss'], eval_results['accuracy']
 
       if eval_results["accuracy"] >= highest_eval_acc:
         highest_eval_acc = eval_results["accuracy"]
@@ -155,8 +166,17 @@ class Trainer(object):
         best_epoch = epoch
         best_model = model.state_dict()
 
+      history["train_losses"].append(train_loss)
+      history["train_accs"].append(train_acc)
+      history["val_losses"].append(val_loss)
+      history["val_accs"].append(val_acc)
+
+      with open("training_history.json", "w") as f:
+        json.dump(history, f)
+
       if epoch - best_epoch >= self.config.early_stop:
         break
+
 
     torch.save(best_model, self.config.model_save_path + f'msa_model_best_ckpt.pth')
 
