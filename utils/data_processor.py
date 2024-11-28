@@ -32,7 +32,7 @@ class TextDataProcessor:
         return texts,self.labels
 
 class ImageDataProcessor:
-    def __init__(self,label_path,image_store_path):
+    def __init__(self, label_path, image_store_path):
         self.ids = None
         self.labels = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

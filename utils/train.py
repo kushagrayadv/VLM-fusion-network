@@ -39,11 +39,11 @@ class Trainer(object):
       text_mask = batch["text_masks"].to(self.config.device)
 
       img_inputs = batch["img_inputs"].to(self.config.device)
-      img_mask = batch["img_masks"].to(self.config.device)
+      # img_mask = batch["img_masks"].to(self.config.device)
 
       optimizer.zero_grad()
 
-      outputs = model(text_inputs, text_mask, img_inputs, img_mask)
+      outputs = model(text_inputs, text_mask, img_inputs)
 
       loss = 0.0
       for task in self.tasks:
@@ -83,9 +83,9 @@ class Trainer(object):
         text_mask = batch["text_masks"].to(self.config.device)
 
         img_inputs = batch["img_inputs"].to(self.config.device)
-        img_mask = batch["img_masks"].to(self.config.device)
+        # img_mask = batch["img_masks"].to(self.config.device)
 
-        outputs = model(text_inputs, text_mask, img_inputs, img_mask)
+        outputs = model(text_inputs, text_mask, img_inputs)
 
         loss = 0.0
         for task in self.tasks:

@@ -16,8 +16,8 @@ class ImageSubModel(BaseModel):
     self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base")
 
 
-  def forward(self, inputs: Tensor, mask: Tensor) -> Tuple[Tensor, Tensor]:
-    embeddings = self.embedding_model(inputs, mask, output_attentions=True)
+  def forward(self, inputs: Tensor) -> Tuple[Tensor, Tensor]:
+    embeddings = self.embedding_model(inputs, output_attentions=True)
     hidden_states = embeddings.hidden_state
     
     features = []
