@@ -26,7 +26,7 @@ class Trainer(object):
     self.metrics = Metrics()
     self.tasks = ['M', 'T', 'I']              # M -> Multimodal task, T -> Text modality, I -> Image modality
 
-  def train_step(self, model: MSAModel, dataloader: DataLoader):
+  def train_step(self, model: MSAModel, text_dataloader: DataLoader, image_dataloader: DataLoader):
     model.train()
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.learning_rate)
@@ -34,11 +34,11 @@ class Trainer(object):
     total_loss = 0.0
     total_accuracy = 0.0
 
-    for batch in tqdm(dataloader):
-      text_inputs = batch["text_inputs"].to(self.config.device)
-      text_mask = batch["text_masks"].to(self.config.device)
+    for (batch_text, batch_img) in tqdm(zip(text_dataloader, image_dataloader)):
+      text_inputs = batch_text["text_inputs"].to(self.config.device)
+      text_mask = batch_text["text_masks"].to(self.config.device)
 
-      img_inputs = batch["img_inputs"].to(self.config.device)
+      img_inputs = batch_img["img_inputs"].to(self.config.device)
       # img_mask = batch["img_masks"].to(self.config.device)
 
       optimizer.zero_grad()
@@ -47,12 +47,12 @@ class Trainer(object):
 
       loss = 0.0
       for task in self.tasks:
-        targets = batch["targets"][task].to(self.config.device).view(-1, 1)
+        targets = batch_text["targets"][task].to(self.config.device).view(-1, 1)
 
         sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets[task])
         loss += sub_loss
 
-      train_results = self.metrics.evaluate(outputs['M'], batch["targets"]['M'])
+      train_results = self.metrics.evaluate(outputs['M'], batch_text["targets"]['M'])
       accuracy = train_results['accuracy']
 
       total_loss += loss.item() * text_inputs.size(0)
@@ -61,12 +61,12 @@ class Trainer(object):
       loss.backward()
       optimizer.step()
 
-    total_loss = total_loss / len(dataloader.dataset)
-    total_accuracy = total_accuracy / len(dataloader.dataset)
+    total_loss = total_loss / len(text_dataloader.dataset)
+    total_accuracy = total_accuracy / len(text_dataloader.dataset)
 
     return total_loss, total_accuracy
 
-  def test_step(self, model: MSAModel, dataloader: DataLoader, mode: str):
+  def test_step(self, model: MSAModel, text_dataloader: DataLoader, image_dataloader: DataLoader, mode: str):
     model.eval()
     y_pred = {'M': [], 'T': [], 'I': []}
     y_true = {'M': [], 'T': [], 'I': []}
@@ -78,18 +78,18 @@ class Trainer(object):
     }
 
     with torch.inference_mode():
-      for batch in tqdm(dataloader):
-        text_inputs = batch["text_inputs"].to(self.config.device)
-        text_mask = batch["text_masks"].to(self.config.device)
+      for (batch_text, batch_img) in tqdm(zip(text_dataloader, image_dataloader)):
+        text_inputs = batch_text["text_inputs"].to(self.config.device)
+        text_mask = batch_text["text_masks"].to(self.config.device)
 
-        img_inputs = batch["img_inputs"].to(self.config.device)
+        img_inputs = batch_img["img_inputs"].to(self.config.device)
         # img_mask = batch["img_masks"].to(self.config.device)
 
         outputs = model(text_inputs, text_mask, img_inputs)
 
         loss = 0.0
         for task in self.tasks:
-          targets = batch["targets"][task].to(self.config.device).view(-1, 1)
+          targets = batch_text["targets"][task].to(self.config.device).view(-1, 1)
 
           sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
           loss += sub_loss
@@ -101,9 +101,9 @@ class Trainer(object):
         total_loss += loss.item() * text_inputs.size(0)
 
       for task in self.tasks:
-        val_loss[task] = val_loss[task] / len(dataloader.dataset)
+        val_loss[task] = val_loss[task] / len(text_dataloader.dataset)
 
-      total_loss = total_loss / len(dataloader.dataset)
+      total_loss = total_loss / len(text_dataloader.dataset)
 
       print(f"{mode} loss: {total_loss:.4f} | Multimodal loss: {val_loss['M']:.4f} | Text loss: {val_loss['T']:.4f} | Image loss: {val_loss['I']:.4f}")
 
