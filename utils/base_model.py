@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Tuple
 
 import torch
@@ -11,7 +11,7 @@ from utils.model_config import Config
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-class BaseModel(nn.Module):
+class BaseModel(nn.Module, ABC):
   def __init__(self, config: Config) -> None:
     super().__init__()
     self.config = config
@@ -43,6 +43,6 @@ class BaseModel(nn.Module):
 
 
   @abstractmethod
-  def forward(self, x: Tensor, mask: Tensor) -> Tensor:
+  def forward(self, inputs: Tensor, *args, **kwargs) -> Tensor:
     """ This method must be implemented by subclasses. """
     pass
