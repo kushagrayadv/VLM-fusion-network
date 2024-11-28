@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
 from PIL import Image
+from transformers import AutoImageProcessor
 
 
 class TextDataset(Dataset):
@@ -15,33 +15,34 @@ class TextDataset(Dataset):
 
     def __getitem__(self, idx):
         return {
-            'input_ids': self.input_ids[idx],
-            'attention_mask': self.attention_mask[idx],
-            'label': torch.tensor(self.labels[idx], dtype=torch.long)
+            'text_inputs': self.input_ids[idx],
+            'text_masks': self.attention_mask[idx],
+            "targets": {
+                "M": torch.tensor(self.labels[idx], dtype=torch.long),
+                "T": torch.tensor(self.labels[idx], dtype=torch.long),
+                "I": torch.tensor(self.labels[idx], dtype=torch.long)
+            }
         }
 
 class ImageDataset(Dataset):
-    def __init__(self, image_paths, labels, transform=None):
+    def __init__(self, image_paths, labels):
         self.image_paths = image_paths
         self.labels = labels
-        self.transform = transform
-
-    def transform(self, image):
-        transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize to 224x224 (e.g., for ResNet)
-            transforms.ToTensor(),  # Convert to tensor
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
-        ])
-        return transform(image)
+        self.image_processor = AutoImageProcessor.from_pretrained("facebook/data2vec-vision-base")
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
-        image = Image.open(self.image_paths[idx]).convert("RGB")  
-        if self.transform:
-            image = self.transform(image)
-        label = torch.tensor(self.labels[idx], dtype=torch.long)
+        image = Image.open(self.image_paths[idx]).convert("RGB")
+        image = self.image_processor(image)
 
-        return image, label
+        return {
+            "img_inputs": image,
+            "targets": {
+                "M": torch.tensor(self.labels[idx], dtype=torch.long),
+                "T": torch.tensor(self.labels[idx], dtype=torch.long),
+                "I": torch.tensor(self.labels[idx], dtype=torch.long)
+            }
+        }
 
