@@ -1,5 +1,6 @@
 from typing import Dict, Literal
 import torch
+from pathlib import Path
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -28,3 +29,7 @@ class Config(object):
     self.batch_size = batch_size
     self.device = device
     self.num_attention_layers = num_attention_layers
+    self.base_data_path = Path("data/MVSA_Single")
+    self.label_path = self.base_data_path / "labelResultAll.csv"
+    self.text_path = self.base_data_path / "data/texts"
+    self.image_path = self.base_data_path / "data/images"

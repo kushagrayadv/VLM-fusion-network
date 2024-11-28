@@ -7,6 +7,8 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from utils import MVSADataLoaders
+from utils.data_processor import TextDataProcessor, ImageDataProcessor
 from utils.metrics import Metrics
 from utils.model import MSAModel
 from utils.model_config import Config
@@ -126,9 +128,10 @@ class Trainer(object):
     np.random.seed(self.config.random_seed)
     torch.backends.cudnn.deterministic = True
 
-    # TODO: uncomment it and remove the later dataloader once data loader classes are added
-    # train_dataloader, val_dataloader, _ = data_loader(self.config.batch_size)
-    train_dataloader, val_dataloader = object, object
+    texts, labels = TextDataProcessor(self.config.label_path, self.config.text_path).get_text_with_same_labels()
+    text_train_loader, text_val_loader = MVSADataLoaders().get_text_dataloader(texts, labels)
+    image_list, labels = ImageDataProcessor(self.config.label_path, self.config.image_path).get_image_with_same_labels()
+    image_train_loader, image_val_loader = MVSADataLoaders().get_image_dataloader(image_list, labels)
 
     model = MSAModel(self.config).to(self.config.device)
 
@@ -154,10 +157,10 @@ class Trainer(object):
     for epoch in tqdm(range(self.config.epochs)):
       print(f"\n=================== Epoch {epoch + 1} ====================")
 
-      train_loss, train_acc = self.train_step(model, train_dataloader)
+      train_loss, train_acc = self.train_step(model, text_train_loader, image_train_loader)
       print(f"Train loss: {train_loss:.4f} | Train Accuracy: {train_acc:.4f}")
 
-      eval_results = self.test_step(model, val_dataloader, mode='Validation')
+      eval_results = self.test_step(model, text_val_loader, image_val_loader, mode='Validation')
       val_loss, val_acc = eval_results['loss'], eval_results['accuracy']
 
       if eval_results["accuracy"] >= highest_eval_acc:
