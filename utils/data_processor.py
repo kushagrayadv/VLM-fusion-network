@@ -4,7 +4,7 @@ import pandas as pd
 
 class TextDataProcessor:
     
-    def __init__(self,label_path,image_store_path,text_store_path):
+    def __init__(self,label_path,text_store_path):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.labels_path = label_path
         self.text_store_path = text_store_path
