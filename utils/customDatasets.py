@@ -2,7 +2,6 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from PIL import Image
-from sklearn.model_selection import train_test_split
 
 
 class TextDataset(Dataset):
@@ -20,17 +19,19 @@ class TextDataset(Dataset):
             'attention_mask': self.attention_mask[idx],
             'label': torch.tensor(self.labels[idx], dtype=torch.long)
         }
+
 class ImageDataset(Dataset):
     def __init__(self, image_paths, labels, transform=None):
         self.image_paths = image_paths
         self.labels = labels
         self.transform = transform
+
     def transform(self, image):
         transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # Resize to 224x224 (e.g., for ResNet)
-        transforms.ToTensor(),  # Convert to tensor
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
-    ])
+            transforms.Resize((224, 224)),  # Resize to 224x224 (e.g., for ResNet)
+            transforms.ToTensor(),  # Convert to tensor
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])  # Normalize
+        ])
         return transform(image)
 
     def __len__(self):
