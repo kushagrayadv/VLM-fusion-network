@@ -6,9 +6,11 @@ from transformers import AutoImageProcessor
 
 class TextDataset(Dataset):
     def __init__(self, tokenized_data, labels):
-        self.input_ids = tokenized_data['input_ids']
-        self.attention_mask = tokenized_data['attention_mask']
-        self.labels = labels
+       data_dict = tokenized_data.to_dict()  
+       self.input_ids = data_dict['input_ids']
+       self.token_type_ids = data_dict['token_type_ids']
+       self.attention_mask = data_dict['attention_mask']
+       self.labels = labels
 
     def __len__(self):
         return len(self.labels)

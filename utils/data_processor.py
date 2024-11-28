@@ -26,7 +26,7 @@ class TextDataProcessor:
     def get_text_with_same_labels(self): 
         df_labels = pd.read_csv(self.labels_path)
         df_labels_with_same_annotation = df_labels[(df_labels['text']== df_labels['image'])]
-        self.labels = df_labels_with_same_annotation
+        self.labels = df_labels_with_same_annotation['text']
         self.ids = df_labels_with_same_annotation['ID']
         texts = self.read_text_dataset()
         return texts,self.labels
@@ -51,7 +51,7 @@ class ImageDataProcessor:
     def get_image_with_same_labels(self):
         df_labels = pd.read_csv(self.labels_path)
         df_labels_with_same_annotation = df_labels[(df_labels['text']== df_labels['image'])]
-        self.labels = df_labels_with_same_annotation
+        self.labels = df_labels_with_same_annotation['image']
         self.ids = df_labels_with_same_annotation['ID']
         images= self.load_image_dataset()
         return images,self.labels
