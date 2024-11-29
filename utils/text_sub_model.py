@@ -11,16 +11,15 @@ class TextSubModel(BaseModel):
     self.device = config.device
 
   def forward(self, inputs: Tensor, mask: Tensor):
-    pretrained_outputs = self.embedding_model(inputs, attention_mask=mask)  # change arguments
-    hidden_states = pretrained_outputs.last_hidden_state
+    pretrained_outputs = self.embedding_model(inputs, output_hidden_states=True)  # change arguments
+    features = pretrained_outputs.last_hidden_state
 
-    features = pretrained_outputs["pooler_output"]
+    print("text hidden state", features.shape)
 
     output = self.output_layers(features)
 
-    attention_encoder_inputs, attention_mask = self.prepend_class(hidden_states, mask)
-
+    attention_encoder_inputs = features
     for layer_module in self.attention_encoder_layers:
-      attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask)
+      attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
 
     return output, attention_encoder_inputs

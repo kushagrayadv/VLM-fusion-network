@@ -18,11 +18,7 @@ class TextDataset(Dataset):
         return {
             'text_inputs': torch.tensor(self.input_ids[idx]),
             'text_masks': torch.tensor(self.attention_mask[idx]),
-            "targets": {
-                "M": torch.tensor(self.labels[idx], dtype=torch.long),
-                "T": torch.tensor(self.labels[idx], dtype=torch.long),
-                "I": torch.tensor(self.labels[idx], dtype=torch.long)
-            }
+            "targets": torch.tensor(self.labels[idx], dtype=torch.int64)
         }
 
 class ImageDataset(Dataset):
@@ -36,14 +32,10 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image = Image.open(self.image_paths[idx]).convert("RGB")
-        image = self.image_processor(image, return_tensors="pt")
+        image = self.image_processor(image, return_tensors="pt")['pixel_values'].squeeze()
 
         return {
             "img_inputs": image,
-            "targets": {
-                "M": torch.tensor(self.labels[idx], dtype=torch.long),
-                "T": torch.tensor(self.labels[idx], dtype=torch.long),
-                "I": torch.tensor(self.labels[idx], dtype=torch.long)
-            }
+            "targets": torch.tensor(self.labels[idx], dtype=torch.int64)
         }
 

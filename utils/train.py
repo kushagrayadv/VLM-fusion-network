@@ -43,16 +43,19 @@ class Trainer(object):
       img_inputs = batch_img["img_inputs"].to(self.config.device)
       # img_mask = batch["img_masks"].to(self.config.device)
 
+      targets = batch_text["targets"].to(self.config.device)
+
       optimizer.zero_grad()
 
-      print("img", img_inputs['pixel_values'].shape)
       outputs = model(text_inputs, text_mask, img_inputs)
 
       loss = 0.0
       for task in self.tasks:
-        targets = batch_text["targets"][task].to(self.config.device).view(-1, 1)
+        # targets = batch_text["targets"][task].to(self.config.device)
 
-        sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets[task])
+        print(f'task:{task}', targets.shape, outputs[task].shape)
+
+        sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
         loss += sub_loss
 
       train_results = self.metrics.evaluate(outputs['M'], batch_text["targets"]['M'])

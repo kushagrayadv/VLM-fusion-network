@@ -20,7 +20,7 @@ class MSAModel(nn.Module):
       nn.ReLU(),
       nn.Linear(in_features=768, out_features=512),
       nn.ReLU(),
-      nn.Linear(in_features=512, out_features=1),
+      nn.Linear(in_features=512, out_features=3),
     )
 
   def forward(self, text_inputs: Tensor,
@@ -33,6 +33,8 @@ class MSAModel(nn.Module):
     concatenated_hidden_states = torch.cat((attention_enc_text_output[:, 0, :], attention_enc_img_output[:, 0, :]), dim=1)
 
     fused_output = self.fused_output_layers(concatenated_hidden_states)
+
+    print("shapes", text_output.shape, img_output.shape, concatenated_hidden_states.shape, attention_enc_img_output.shape, attention_enc_text_output.shape)
 
     return {
       'T': text_output,
