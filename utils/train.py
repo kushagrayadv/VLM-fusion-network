@@ -45,6 +45,7 @@ class Trainer(object):
 
       optimizer.zero_grad()
 
+      print("img", img_inputs['pixel_values'].shape)
       outputs = model(text_inputs, text_mask, img_inputs)
 
       loss = 0.0

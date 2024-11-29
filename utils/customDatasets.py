@@ -8,7 +8,6 @@ class TextDataset(Dataset):
     def __init__(self, tokenized_data, labels):
        data_dict = tokenized_data.to_dict()  
        self.input_ids = data_dict['input_ids']
-       self.token_type_ids = data_dict['token_type_ids']
        self.attention_mask = data_dict['attention_mask']
        self.labels = labels.map({"positive": 2, "negative": 0, "neutral": 1}).reset_index(drop=True) 
 
@@ -17,8 +16,8 @@ class TextDataset(Dataset):
 
     def __getitem__(self, idx):
         return {
-            'text_inputs': self.input_ids[idx],
-            'text_masks': self.attention_mask[idx],
+            'text_inputs': torch.tensor(self.input_ids[idx]),
+            'text_masks': torch.tensor(self.attention_mask[idx]),
             "targets": {
                 "M": torch.tensor(self.labels[idx], dtype=torch.long),
                 "T": torch.tensor(self.labels[idx], dtype=torch.long),
@@ -37,7 +36,7 @@ class ImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image = Image.open(self.image_paths[idx]).convert("RGB")
-        image = self.image_processor(image)
+        image = self.image_processor(image, return_tensors="pt")
 
         return {
             "img_inputs": image,

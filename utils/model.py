@@ -27,8 +27,8 @@ class MSAModel(nn.Module):
               text_mask: Tensor,
               img_inputs: Tensor) -> Dict[str, Tensor]:
 
-    text_output, attention_enc_text_output = self.text_sub_model(text_inputs, text_mask)
     img_output, attention_enc_img_output = self.img_sub_model(img_inputs)
+    text_output, attention_enc_text_output = self.text_sub_model(text_inputs, text_mask)
 
     concatenated_hidden_states = torch.cat((attention_enc_text_output[:, 0, :], attention_enc_img_output[:, 0, :]), dim=1)
 

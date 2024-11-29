@@ -37,6 +37,7 @@ class BaseModel(nn.Module, ABC):
       outputs = torch.cat((cls_emb, inputs), dim=1)
 
       cls_mask = torch.ones(inputs.size(0), 1, inputs.size(2)).to(device=inputs.device)
+      print("shapes", cls_mask.shape, masks.shape)
       masks = torch.cat([cls_mask, masks], dim=1)
 
       return outputs, masks
