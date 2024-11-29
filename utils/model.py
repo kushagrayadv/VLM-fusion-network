@@ -30,11 +30,9 @@ class MSAModel(nn.Module):
     img_output, attention_enc_img_output = self.img_sub_model(img_inputs)
     text_output, attention_enc_text_output = self.text_sub_model(text_inputs, text_mask)
 
-    concatenated_hidden_states = torch.cat((attention_enc_text_output[:, 0, :], attention_enc_img_output[:, 0, :]), dim=1)
+    concatenated_hidden_states = torch.cat((attention_enc_text_output, attention_enc_img_output), dim=1)
 
     fused_output = self.fused_output_layers(concatenated_hidden_states)
-
-    print("shapes", text_output.shape, img_output.shape, concatenated_hidden_states.shape, attention_enc_img_output.shape, attention_enc_text_output.shape)
 
     return {
       'T': text_output,

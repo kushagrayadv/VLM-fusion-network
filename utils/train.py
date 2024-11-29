@@ -41,7 +41,6 @@ class Trainer(object):
       text_mask = batch_text["text_masks"].to(self.config.device)
 
       img_inputs = batch_img["img_inputs"].to(self.config.device)
-      # img_mask = batch["img_masks"].to(self.config.device)
 
       targets = batch_text["targets"].to(self.config.device)
 
@@ -51,14 +50,10 @@ class Trainer(object):
 
       loss = 0.0
       for task in self.tasks:
-        # targets = batch_text["targets"][task].to(self.config.device)
-
-        print(f'task:{task}', targets.shape, outputs[task].shape)
-
         sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
         loss += sub_loss
 
-      train_results = self.metrics.evaluate(outputs['M'], batch_text["targets"]['M'])
+      train_results = self.metrics.evaluate(outputs['M'], targets)
       accuracy = train_results['accuracy']
 
       total_loss += loss.item() * text_inputs.size(0)
@@ -89,14 +84,13 @@ class Trainer(object):
         text_mask = batch_text["text_masks"].to(self.config.device)
 
         img_inputs = batch_img["img_inputs"].to(self.config.device)
-        # img_mask = batch["img_masks"].to(self.config.device)
 
         outputs = model(text_inputs, text_mask, img_inputs)
 
+        targets = batch_text["targets"].to(self.config.device)
+
         loss = 0.0
         for task in self.tasks:
-          targets = batch_text["targets"][task].to(self.config.device).view(-1, 1)
-
           sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
           loss += sub_loss
           val_loss[task] += sub_loss.item() * text_inputs.size(0)

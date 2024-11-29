@@ -1,4 +1,4 @@
-from transformers import AutoModel
+from transformers import RobertaModel
 from utils.model_config import Config
 from torch import Tensor
 from utils.base_model import BaseModel
@@ -7,14 +7,12 @@ from utils.base_model import BaseModel
 class TextSubModel(BaseModel):
   def __init__(self, config: Config):
     super().__init__(config)
-    self.embedding_model = AutoModel.from_pretrained('roberta-base')
+    self.embedding_model = RobertaModel.from_pretrained('roberta-base')
     self.device = config.device
 
   def forward(self, inputs: Tensor, mask: Tensor):
-    pretrained_outputs = self.embedding_model(inputs, output_hidden_states=True)  # change arguments
-    features = pretrained_outputs.last_hidden_state
-
-    print("text hidden state", features.shape)
+    pretrained_outputs = self.embedding_model(inputs)  # change arguments
+    features = pretrained_outputs.pooler_output
 
     output = self.output_layers(features)
 

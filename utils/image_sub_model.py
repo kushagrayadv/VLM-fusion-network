@@ -13,14 +13,12 @@ class ImageSubModel(BaseModel):
   def __init__(self, config: Config) -> None:
     super().__init__(config=config)
     self.device = config.device
-    self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base")
+    self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base", add_pooling_layer=True)
 
   def forward(self, inputs: Tensor) -> Tuple[Tensor, Tensor]:
-    embeddings = self.embedding_model(inputs, output_hidden_states=True)
+    embeddings = self.embedding_model(inputs)
 
-    features = embeddings.last_hidden_state
-
-    print("img hidden state", features.shape)
+    features = embeddings.pooler_output
 
     output = self.output_layers(features)
 
