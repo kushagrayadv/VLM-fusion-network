@@ -10,7 +10,7 @@ class TextDataset(Dataset):
        self.input_ids = data_dict['input_ids']
        self.token_type_ids = data_dict['token_type_ids']
        self.attention_mask = data_dict['attention_mask']
-       self.labels = labels
+       self.labels = labels.map({"positive": 2, "negative": 0, "neutral": 1}).reset_index(drop=True) 
 
     def __len__(self):
         return len(self.labels)
@@ -29,7 +29,7 @@ class TextDataset(Dataset):
 class ImageDataset(Dataset):
     def __init__(self, image_paths, labels):
         self.image_paths = image_paths
-        self.labels = labels
+        self.labels = labels.map({"positive": 2, "negative": 0, "neutral": 1}).reset_index(drop=True) 
         self.image_processor = AutoImageProcessor.from_pretrained("facebook/data2vec-vision-base")
 
     def __len__(self):
