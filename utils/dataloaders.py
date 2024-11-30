@@ -18,8 +18,8 @@ class MVSADataLoaders:
         train_dataset = ImageDataset(train_paths, train_labels)
         test_dataset = ImageDataset(test_paths, test_labels)
 
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=4, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
 
         return train_loader, test_loader
 
@@ -38,7 +38,7 @@ class MVSADataLoaders:
         train_dataset = TextDataset(train_dataset, train_labels)
         test_dataset = TextDataset(test_dataset, test_labels)
 
-        train_loader = DataLoader(train_dataset, batch_size=32, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=4, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=2, shuffle=False)
 
         return train_loader, test_loader
