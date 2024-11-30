@@ -16,7 +16,6 @@ class BaseModel(nn.Module, ABC):
     super().__init__()
     self.config = config
 
-    self.embedding_model = None                     # It will be Roberta/Data2VecVision for respective modalities
     self.output_layers = nn.Sequential(             # These will be for individual modality
         nn.Dropout(),
         nn.Linear(768, 3)       # Embedding size is 768

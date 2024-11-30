@@ -3,6 +3,8 @@ from typing import Dict
 import torch
 from torch import nn, Tensor
 
+from transformers import Data2VecVisionModel, RobertaModel
+
 from utils.model_config import Config
 from utils.image_sub_model import ImageSubModel
 from utils.text_sub_model import TextSubModel
@@ -13,6 +15,9 @@ class MSAModel(nn.Module):
     super().__init__()
     self.img_sub_model = ImageSubModel(config)
     self.text_sub_model = TextSubModel(config)
+
+    self.img_embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base", add_pooling_layer=True)
+    self.text_embedding_model = RobertaModel.from_pretrained('roberta-base')
 
     self.fused_output_layers = nn.Sequential(
       nn.Dropout(config.dropout),
@@ -29,8 +34,14 @@ class MSAModel(nn.Module):
               text_mask: Tensor,
               img_inputs: Tensor) -> Dict[str, Tensor]:
 
-    img_output, attention_enc_img_output = self.img_sub_model(img_inputs)
-    text_output, attention_enc_text_output = self.text_sub_model(text_inputs, text_mask)
+    img_embeddings = self.img_embedding_model(img_inputs)
+    img_features = img_embeddings.pooler_output
+
+    text_embeddings = self.text_embedding_model(text_inputs, attention_mask=text_mask)
+    text_features = text_embeddings.pooler_output
+
+    img_output, attention_enc_img_output = self.img_sub_model(img_features, text_features, text_mask)
+    text_output, attention_enc_text_output = self.text_sub_model(text_features, img_features, text_mask)
 
     fused_features = torch.stack((attention_enc_text_output, attention_enc_img_output), dim=1)
 

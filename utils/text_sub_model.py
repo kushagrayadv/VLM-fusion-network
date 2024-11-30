@@ -7,17 +7,13 @@ from utils.base_model import BaseModel
 class TextSubModel(BaseModel):
   def __init__(self, config: Config):
     super().__init__(config)
-    self.embedding_model = RobertaModel.from_pretrained('roberta-base')
     self.device = config.device
 
-  def forward(self, inputs: Tensor, mask: Tensor):
-    pretrained_outputs = self.embedding_model(inputs, attention_mask = mask)
-    features = pretrained_outputs.pooler_output
+  def forward(self, inputs: Tensor, ctx_inputs: Tensor, mask: Tensor):
+    output = self.output_layers(inputs)
 
-    output = self.output_layers(features)
-
-    attention_encoder_inputs = features
+    attention_encoder_inputs = inputs
     for layer_module in self.attention_encoder_layers:
-      attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
+      attention_encoder_inputs = layer_module(attention_encoder_inputs, ctx_inputs, mask, None)
 
     return output, attention_encoder_inputs

@@ -159,6 +159,18 @@ class BertAttentionOutput(nn.Module):
     hidden_states = self.LayerNorm(hidden_states + input_tensor)
     return hidden_states
 
+class BertCrossAttentionLayer(nn.Module):
+  def __init__(self, config):
+    super().__init__()
+    self.att = BertAttention(config)
+    self.output = BertAttentionOutput(config)
+
+  def forward(self, input_tensor, ctx_tensor, ctx_att_mask=None):
+    output = self.att(input_tensor, ctx_tensor, ctx_att_mask)
+    attention_output = self.output(output, input_tensor)  # attention_output = self.output(output, input_tensor)
+
+    return attention_output
+
 
 class BertSelfAttentionLayer(nn.Module):
   def __init__(self, config: BertConfig) -> None:
