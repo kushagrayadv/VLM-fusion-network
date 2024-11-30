@@ -5,8 +5,6 @@ from .customDatasets import ImageDataset, TextDataset
 class MVSADataLoaders:
     def __init__(self):
         pass
-    def __init__(self):
-        pass
 
     def get_image_dataloader(self, image_paths, labels):
         train_size = int(0.8 * len(image_paths))  # 80% train, 20% test
