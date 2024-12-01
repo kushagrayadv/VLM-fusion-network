@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 from utils import MVSADataLoaders
-from utils.data_processor import TextDataProcessor, ImageDataProcessor
+from utils.data_processor import TextDataProcessor, ImageDataProcessor, MultiModalDataProcessor
 from utils.metrics import Metrics
 from utils.model import MSAModel
 from utils.model_config import Config
@@ -47,11 +47,16 @@ class Trainer(object):
       optimizer.zero_grad()
 
       outputs = model(text_inputs, text_mask, img_inputs)
+      # pred_probs = torch.softmax(outputs['M'], dim=1)
+      # pred_labels = torch.argmax(pred_probs, dim=1)
+      # print(pred_labels, targets)
 
-      loss = 0.0
-      for task in self.tasks:
-        sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
-        loss += sub_loss
+      # loss = 0.0
+      # for task in self.tasks:
+      #   sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
+      #   loss += sub_loss
+
+      loss = self.loss_fn(outputs['M'], targets)
 
       train_results = self.metrics.evaluate(outputs['M'], targets)
       accuracy = train_results['accuracy']
@@ -127,8 +132,9 @@ class Trainer(object):
     torch.backends.cudnn.deterministic = True
 
     texts, labels = TextDataProcessor(self.config.label_path, self.config.text_path).get_text_with_same_labels()
-    text_train_loader, text_val_loader = MVSADataLoaders().get_text_dataloader(texts, labels)
     image_list, labels = ImageDataProcessor(self.config.label_path, self.config.image_path).get_image_with_same_labels()
+    texts, image_list, labels = MultiModalDataProcessor(texts, image_list, labels).shuffle()
+    text_train_loader, text_val_loader = MVSADataLoaders().get_text_dataloader(texts, labels)
     image_train_loader, image_val_loader = MVSADataLoaders().get_image_dataloader(image_list, labels)
 
     model = MSAModel(self.config).to(self.config.device)

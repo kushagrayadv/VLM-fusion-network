@@ -1,57 +1,74 @@
 import os
-import torch
+
+import numpy as np
 import pandas as pd
+import torch
+
 
 class TextDataProcessor:
-    
-    def __init__(self, label_path, text_store_path):
-        self.ids = None
-        self.labels = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.labels_path = label_path
-        self.text_store_path = text_store_path
-    
 
-    def read_text_dataset(self):
-        texts = []
-        for filename in os.listdir(self.text_store_path):
-            extension = filename
-            if filename.strip('.txt') in list(map(str, self.ids.values)):
-                filepath = os.path.join(self.text_store_path,extension)
-                with open(filepath, 'r',errors="replace") as file:
-                    content = file.read()
-                    texts.append(content) # Process each line as a text sample
-        return texts
+  def __init__(self, label_path, text_store_path):
+    self.ids = None
+    self.labels = None
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    self.labels_path = label_path
+    self.text_store_path = text_store_path
 
-    def get_text_with_same_labels(self): 
-        df_labels = pd.read_csv(self.labels_path)
-        df_labels_with_same_annotation = df_labels[(df_labels['text']== df_labels['image'])]
-        self.labels = df_labels_with_same_annotation['text']
-        self.ids = df_labels_with_same_annotation['ID']
-        texts = self.read_text_dataset()
-        return texts,self.labels
+  def read_text_dataset(self):
+    texts = []
+    for text_id in self.ids.values:
+      filepath = os.path.join(self.text_store_path, f"{text_id}.txt")
+      with open(filepath, 'r', errors="replace") as file:
+        content = file.read()
+        texts.append(content)
+    return texts
+
+  def get_text_with_same_labels(self):
+    df_labels = pd.read_csv(self.labels_path)
+    df_labels_with_same_annotation = df_labels[(df_labels['text'] == df_labels['image'])]
+    self.labels = df_labels_with_same_annotation['text']
+    self.ids = df_labels_with_same_annotation['ID']
+    texts = self.read_text_dataset()
+    return texts, self.labels
+
 
 class ImageDataProcessor:
-    def __init__(self, label_path, image_store_path):
-        self.ids = None
-        self.labels = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.labels_path = label_path
-        self.image_store_path = image_store_path
+  def __init__(self, label_path, image_store_path):
+    self.ids = None
+    self.labels = None
+    self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    self.labels_path = label_path
+    self.image_store_path = image_store_path
 
-    def load_image_dataset(self):
-        images = []
-        for filename in os.listdir(self.image_store_path):
-            extension = filename
-            if filename.strip('.jpg') in list(map(str, self.ids.values)):
-                filepath = os.path.join(self.image_store_path,extension)
-                images.append(filepath) # Process each line as a text sample
-        return images
+  def load_image_dataset(self):
+    images = [ f"{self.image_store_path}/{img_id}.jpg" for img_id in self.ids.values]
+    return images
 
-    def get_image_with_same_labels(self):
-        df_labels = pd.read_csv(self.labels_path)
-        df_labels_with_same_annotation = df_labels[(df_labels['text']== df_labels['image'])]
-        self.labels = df_labels_with_same_annotation['image']
-        self.ids = df_labels_with_same_annotation['ID']
-        images= self.load_image_dataset()
-        return images,self.labels
+  def get_image_with_same_labels(self):
+    df_labels = pd.read_csv(self.labels_path)
+    df_labels_with_same_annotation = df_labels[(df_labels['text'] == df_labels['image'])]
+    self.labels = df_labels_with_same_annotation['image']
+    self.ids = df_labels_with_same_annotation['ID']
+    images = self.load_image_dataset()
+    return images, self.labels
+
+
+class MultiModalDataProcessor:
+  def __init__(self, texts, imgs, labels):
+    self.texts = texts
+    self.imgs = imgs
+    self.labels = labels
+
+  def shuffle(self):
+    texts_array = np.array(self.texts)
+    img_array = np.array(self.imgs)
+    labels = self.labels.to_numpy()
+
+    concatenated_array = np.column_stack((labels, texts_array, img_array))
+    np.random.shuffle(concatenated_array)
+
+    labels = concatenated_array[:, 0]
+    texts = concatenated_array[:, 1]
+    imgs = concatenated_array[:, 2]
+
+    return texts, imgs, pd.Series(labels)

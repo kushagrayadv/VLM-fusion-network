@@ -16,7 +16,7 @@ class Config(object):
                model: Literal["cc", "cme"] = 'cc',
                batch_size: int = 64,
                device = device,
-               num_attention_layers: int = 1):
+               num_attention_layers: int = 5):
 
     self.loss_weights = loss_weights
     self.model_save_path = model_save_path

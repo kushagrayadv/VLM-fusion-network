@@ -11,13 +11,13 @@ class TextSubModel(BaseModel):
     self.device = config.device
 
   def forward(self, inputs: Tensor, mask: Tensor):
-    pretrained_outputs = self.embedding_model(inputs)  # change arguments
+    pretrained_outputs = self.embedding_model(inputs, attention_mask = mask)
     features = pretrained_outputs.pooler_output
 
     output = self.output_layers(features)
 
     attention_encoder_inputs = features
-    for layer_module in self.attention_encoder_layers:
-      attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
+    # for layer_module in self.attention_encoder_layers:
+    #   attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
 
     return output, attention_encoder_inputs
