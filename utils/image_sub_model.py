@@ -1,29 +1,20 @@
-from typing import Tuple
-
-import torch
-from torch import Tensor
-
-from transformers import Data2VecVisionModel
-
-from utils.base_model import BaseModel
+# from transformers import Data2VecVisionModel
+# from utils.base_model import BaseModel
 from utils.model_config import Config
+from torch import nn
+from torchvision import models
+import torchvision
 
 
-class ImageSubModel(BaseModel):
-  def __init__(self, config: Config) -> None:
-    super().__init__(config=config)
-    self.device = config.device
-    self.embedding_model = Data2VecVisionModel.from_pretrained("facebook/data2vec-vision-base", add_pooling_layer=True)
+class ImageEncoder(nn.Module):
+    def __init__(self):
+        super(ImageEncoder, self).__init__()
+        densenet = models.densenet121(weights=torchvision.models.DenseNet121_Weights.DEFAULT)
+        self.features = densenet.features
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.proj = nn.Linear(1024, 512)  # Reduce image focus with DenseNet-121 and project to 512-dim
 
-  def forward(self, inputs: Tensor) -> Tuple[Tensor, Tensor]:
-    embeddings = self.embedding_model(inputs)
-
-    features = embeddings.pooler_output
-
-    output = self.output_layers(features)
-
-    attention_encoder_inputs = features
-    # for layer_module in self.attention_encoder_layers:
-    #   attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask = None)
-
-    return output, attention_encoder_inputs
+    def forward(self, images):
+        features = self.features(images)
+        pooled = self.avgpool(features).view(features.size(0), -1)
+        return self.proj(pooled)  # Project to 512-dim

@@ -1,16 +1,11 @@
-from transformers import AutoTokenizer
+from transformers import DebertaV2Tokenizer
 from datasets import Dataset
 
 class TextTokenizer:
-    def __init__(self,text,label):
-        self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
-        self.text=text
-        self.label = label
+    def __init__(self):
+        self.tokenizer = DebertaV2Tokenizer.from_pretrained("microsoft/deberta-v3-large")
+        
 
-    def tokenize(self,batch):
-        return self.tokenizer(batch["text"], return_tensors='pt', padding=True)
-
-    def get_dataset(self):
-        dataset = Dataset.from_dict({'text': self.text, 'labels': self.label})
-        dataset = dataset.map(self.tokenize, batched=True)
-        return dataset
+    def preprocess_text(self,text):      
+        encoding = self.tokenizer(text, padding="max_length", max_length=128, truncation=True, return_tensors="pt")
+        return encoding["input_ids"].squeeze(0), encoding["attention_mask"].squeeze(0)
