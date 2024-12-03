@@ -42,10 +42,10 @@ class Trainer:
     scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3, verbose=True)
 
     for param in image_encoder.features.parameters():
-      param.requires_grad = True
+      param.requires_grad = False
 
     for param in text_encoder.embedding_model.parameters():
-      param.requires_grad = True
+      param.requires_grad = False
     # Directories to save the best models
     highest_acc_dir = "/Users/uttamsingh/Documents/Graduate/Fall2024/highest_acc"
     highest_f1_dir = "/Users/uttamsingh/Documents/Graduate/Fall2024/highest_f1"
