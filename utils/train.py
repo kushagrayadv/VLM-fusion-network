@@ -108,6 +108,7 @@ class Trainer:
         text_encoder.eval()
         image_encoder.eval()
         total_loss, correct_predictions, total_samples = 0, 0, 0
+        all_preds, all_labels = [], []
 
         with torch.inference_mode():
           for batch in tqdm(val_loader):
