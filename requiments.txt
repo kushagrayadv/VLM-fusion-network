@@ -1,0 +1,15 @@
+torch
+abc
+typing
+torch.utils.data
+torchvision
+maths
+numpy
+pillow
+tqdm
+scipy
+scikit-learn
+scikit-image
+PIL 
+matplotlib
+transformers
