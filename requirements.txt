@@ -1,7 +1,0 @@
-torch
-torchvision
-numpy
-pillow
-tqdm
-scipy
-scikit-learn
