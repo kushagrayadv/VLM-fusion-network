@@ -1,163 +1,202 @@
-from tqdm.auto import tqdm
-import os
-import shutil
-import torch
-import torch.nn as nn
-import pandas as pd
-from sklearn.metrics import f1_score, accuracy_score, classification_report, confusion_matrix, roc_auc_score, roc_curve
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import label_binarize
 import json
-from utils.text_sub_model import TextEncoder
-from utils.image_sub_model import ImageEncoder
-from utils.multi_modal import MultimodalTransformerModel
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from utils.model_config import Config
+import random
+
+import numpy as np
+import torch.optim
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+
+from utils import MVSADataLoaders
 from utils.data_processor import TextDataProcessor, ImageDataProcessor, MultiModalDataProcessor
-from utils.dataloaders import MVSADataLoaders
+from utils.metrics import Metrics
+from utils.model import MSAModel
+from utils.model_config import Config
 
-# Set device
-class Trainer:
-  def __init__(self,config):
+
+def dict_to_str(src_dict):
+  dst_str = ""
+  for key in src_dict.keys():
+    dst_str += " %s: %.4f " % (key, src_dict[key])
+  return dst_str
+
+class Trainer(object):
+  def __init__(self, config: Config):
+
     self.config = config
+    self.loss_fn = nn.CrossEntropyLoss()
+    self.metrics = Metrics()
+    self.tasks = ['M', 'T', 'I']              # M -> Multimodal task, T -> Text modality, I -> Image modality
+
+  def train_step(self, model: MSAModel, text_dataloader: DataLoader, image_dataloader: DataLoader):
+    model.train()
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=self.config.learning_rate)
+
+    total_loss = 0.0
+    total_accuracy = 0.0
+
+    for (batch_text, batch_img) in tqdm(zip(text_dataloader, image_dataloader)):
+      text_inputs = batch_text["text_inputs"].to(self.config.device)
+      text_mask = batch_text["text_masks"].to(self.config.device)
+
+      img_inputs = batch_img["img_inputs"].to(self.config.device)
+
+      targets = batch_text["targets"].to(self.config.device)
+
+      optimizer.zero_grad()
+
+      outputs = model(text_inputs, text_mask, img_inputs)
+      # pred_probs = torch.softmax(outputs['M'], dim=1)
+      # pred_labels = torch.argmax(pred_probs, dim=1)
+      # print(pred_labels, targets)
+
+      # loss = 0.0
+      # for task in self.tasks:
+      #   sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
+      #   loss += sub_loss
+
+      loss = self.loss_fn(outputs['M'], targets)
+
+      train_results = self.metrics.evaluate(outputs['M'], targets)
+      accuracy = train_results['accuracy']
+
+      total_loss += loss.item() * text_inputs.size(0)
+      total_accuracy += accuracy * text_inputs.size(0)
+
+      loss.backward()
+      optimizer.step()
+
+    total_loss = total_loss / len(text_dataloader.dataset)
+    total_accuracy = total_accuracy / len(text_dataloader.dataset)
+
+    return total_loss, total_accuracy
+
+  def test_step(self, model: MSAModel, text_dataloader: DataLoader, image_dataloader: DataLoader, mode: str):
+    model.eval()
+    y_pred = {'M': [], 'T': [], 'I': []}
+    y_true = {'M': [], 'T': [], 'I': []}
+    total_loss = 0
+    val_loss = {
+      'M': 0,
+      'T': 0,
+      'I': 0
+    }
+
+    with torch.inference_mode():
+      for (batch_text, batch_img) in tqdm(zip(text_dataloader, image_dataloader)):
+        text_inputs = batch_text["text_inputs"].to(self.config.device)
+        text_mask = batch_text["text_masks"].to(self.config.device)
+
+        img_inputs = batch_img["img_inputs"].to(self.config.device)
+
+        outputs = model(text_inputs, text_mask, img_inputs)
+
+        targets = batch_text["targets"].to(self.config.device)
+
+        loss = 0.0
+        for task in self.tasks:
+          sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
+          loss += sub_loss
+          val_loss[task] += sub_loss.item() * text_inputs.size(0)
+
+          y_pred[task].append(outputs[task].cpu())
+          y_true[task].append(targets.cpu())
+
+        total_loss += loss.item() * text_inputs.size(0)
+
+      for task in self.tasks:
+        val_loss[task] = val_loss[task] / len(text_dataloader.dataset)
+
+      total_loss = total_loss / len(text_dataloader.dataset)
+
+      print(f"{mode} loss: {total_loss:.4f} | Multimodal loss: {val_loss['M']:.4f} | Text loss: {val_loss['T']:.4f} | Image loss: {val_loss['I']:.4f}")
+
+      eval_results = {}
+      for task in self.tasks:
+        pred, true = torch.cat(y_pred[task]), torch.cat(y_true[task])
+        results = self.metrics.evaluate(pred, true)
+        print(f"'{task}' results: "  + dict_to_str(results))
+        eval_results[task] = results
+
+      eval_results = eval_results[self.tasks[0]]
+      eval_results['loss'] = total_loss
+
+    return eval_results
+
   def train(self):
-    label_path = self.config.label_path
-    text_path = self.config.text_path
-    image_path = self.config.image_path
+    random.seed(self.config.random_seed)
+    torch.manual_seed(self.config.random_seed)
+    torch.cuda.manual_seed(self.config.random_seed)
+    np.random.seed(self.config.random_seed)
+    torch.backends.cudnn.deterministic = True
 
-    texts, labels = TextDataProcessor(label_path, text_path).get_text_with_same_labels()
-    image_list, labels = ImageDataProcessor(label_path, image_path).get_image_with_same_labels()
-    data = MultiModalDataProcessor(texts, image_list, labels).shuffle()
-    train_loader, val_loader, test_loader = MVSADataLoaders().get_dataloaders(data)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print("Using device:", device)
-    # Initialize Models, Optimizer, and Loss
-    text_encoder = TextEncoder().to(device)
-    image_encoder = ImageEncoder().to(device)
-    model = MultimodalTransformerModel().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5)
-    class_weights = torch.tensor([1.0,1.75,0.5], dtype=torch.float).to(device)
-    criterion = nn.CrossEntropyLoss()
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=3, verbose=True)
+    texts, labels = TextDataProcessor(self.config.label_path, self.config.text_path).get_text_with_same_labels()
+    image_list, labels = ImageDataProcessor(self.config.label_path, self.config.image_path).get_image_with_same_labels()
+    texts, image_list, labels = MultiModalDataProcessor(texts, image_list, labels).shuffle()
+    text_train_loader, text_val_loader = MVSADataLoaders().get_text_dataloader(texts, labels)
+    image_train_loader, image_val_loader = MVSADataLoaders().get_image_dataloader(image_list, labels)
 
-    for param in image_encoder.features.parameters():
+    model = MSAModel(self.config).to(self.config.device)
+
+    # Freezing the pretrained embedding models
+    for param in model.text_sub_model.embedding_model.parameters():
       param.requires_grad = False
 
-    for param in text_encoder.embedding_model.parameters():
+    for param in model.img_sub_model.embedding_model.parameters():
       param.requires_grad = False
-    # Directories to save the best models
-    highest_acc_dir = "/Users/uttamsingh/Documents/Graduate/Fall2024/highest_acc"
-    highest_f1_dir = "/Users/uttamsingh/Documents/Graduate/Fall2024/highest_f1"
-    os.makedirs(highest_acc_dir, exist_ok=True)
-    os.makedirs(highest_f1_dir, exist_ok=True)
 
-    # model.load_state_dict(torch.load(os.path.join(highest_acc_dir, "best_accuracy_model.pth")))
+    highest_eval_acc = 0
+    epoch = 0
+    best_epoch = 0
+    best_model = None
 
-    # Initialize tracking variables for highest metrics
-    best_accuracy = 0.0
+    history = {
+      "train_losses": [],
+      "train_accs": [],
+      "val_losses": [],
+      "val_accs": []
+    }
 
-    # Training loop with model-saving logic
-    history = {'epoch': [],
-              'train_loss': [],
-              'train_accuracy': [],
-              'train_f1_score': [],
-              'val_loss': [],
-              'val_accuracy': [],
-              'val_f1_score': []
-              }
+    for epoch in tqdm(range(self.config.epochs)):
+      print(f"\n=================== Epoch {epoch + 1} ====================")
 
-    for epoch in range(30):  # Adjust epochs as needed
-        print(f"\n=================== Epoch {epoch + 1} ====================")
-        model.train()
-        total_loss, correct_predictions, total_samples = 0, 0, 0
-        all_preds, all_labels = [], []
+      train_loss, train_acc = self.train_step(model, text_train_loader, image_train_loader)
+      print(f"Train loss: {train_loss:.4f} | Train Accuracy: {train_acc:.4f}")
 
-        # Train step
-        for batch in tqdm(train_loader):
-            inputs, labels = batch
-            input_ids, attention_mask, pixel_values = [inputs[key].to(device) for key in ['input_ids', 'attention_mask', 'pixel_values']]
-            labels = labels.to(device)
+      eval_results = self.test_step(model, text_val_loader, image_val_loader, mode='Validation')
+      val_loss, val_acc = eval_results['loss'], eval_results['accuracy']
 
-            text_features = text_encoder.forward(input_ids, attention_mask)
-            image_features = image_encoder.forward(pixel_values)
+      if eval_results["accuracy"] >= highest_eval_acc:
+        highest_eval_acc = eval_results["accuracy"]
+        torch.save(model.state_dict(), self.config.model_save_path + f'msa_model_{highest_eval_acc}_ckpt.pth')
+        best_epoch = epoch
+        best_model = model.state_dict()
 
-            outputs = model(text_features, image_features)
-            loss = criterion(outputs, labels)
+      history["train_losses"].append(train_loss)
+      history["train_accs"].append(train_acc)
+      history["val_losses"].append(val_loss)
+      history["val_accs"].append(val_acc)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+      with open("training_history.json", "w") as f:
+        json.dump(history, f)
 
-            total_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
-
-            correct_predictions += (preds == labels).sum().item()
-            total_samples += labels.size(0)
-
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
-
-        train_loss = total_loss / len(train_loader)
-        train_accuracy = correct_predictions / total_samples
-        train_f1 = f1_score(all_labels, all_preds, average="weighted")
-
-        scheduler.step(train_f1)
-
-        model.eval()
-        text_encoder.eval()
-        image_encoder.eval()
-        total_loss, correct_predictions, total_samples = 0, 0, 0
-        all_preds, all_labels = [], []
-
-        with torch.inference_mode():
-          for batch in tqdm(val_loader):
-            inputs, labels = batch
-            input_ids, attention_mask, pixel_values = [inputs[key].to(device) for key in ['input_ids', 'attention_mask', 'pixel_values']]
-            labels = labels.to(device)
-
-            text_features = text_encoder(input_ids, attention_mask)
-            image_features = image_encoder(pixel_values)
-
-            outputs = model(text_features, image_features)
-            loss = criterion(outputs, labels)
-
-            total_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
-
-            correct_predictions += (preds == labels).sum().item()
-            total_samples += labels.size(0)
-
-            all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(labels.cpu().numpy())
+      if epoch - best_epoch >= self.config.early_stop:
+        break
 
 
-        val_loss = total_loss / len(val_loader)
-        val_accuracy = correct_predictions / total_samples
-        val_f1 = f1_score(all_labels, all_preds, average="weighted")
+    torch.save(best_model, self.config.model_save_path + f'msa_model_best_ckpt.pth')
 
-        # Save to history
-        history['epoch'].append(epoch + 1)
-        history['train_loss'].append(train_loss)
-        history['train_accuracy'].append(train_accuracy)
-        history['train_f1_score'].append(train_f1)
-        history['val_loss'].append(val_loss)
-        history['val_accuracy'].append(val_accuracy)
-        history['val_f1_score'].append(val_f1)
 
-        with open("training_history.json", "w") as f:
-          json.dump(history, f)
-
-        # Check for new highest accuracy
-        if val_accuracy > best_accuracy:
-            best_accuracy = val_accuracy
-            shutil.rmtree(highest_acc_dir)
-            os.makedirs(highest_acc_dir, exist_ok=True)
-            torch.save(model.state_dict(), os.path.join(highest_acc_dir, "best_accuracy_model.pth"))
-            print(f"New best accuracy model saved with accuracy: {best_accuracy:.4f}")
-
-        print(f"Train Loss: {train_loss:.4f} | Train Accuracy: {train_accuracy:.4f} | Train F1 Score: {train_f1:.4f} | Validation Loss: {val_loss:.4f} | Validation Accuracy: {val_accuracy:.4f} | Validation F1 Score: {val_f1:.4f}")
-
-    return model
   def test(self):
-    pass
+    # TODO: uncomment it and remove the later dataloader once data loader classes are added
+    # _, _, test_dataloader = data_loader(self.config.batch_size)
+    test_dataloader = object
+
+    model = MSAModel(self.config).to(self.config.device)
+    model.eval()
+
+    with torch.inference_mode():
+      model.load_state_dict(torch.load(self.config.model_save_path + f'msa_model_best_ckpt.pth'))
+      test_results = self.test_step(model, test_dataloader, mode='Test')
+      print(f"\nTest results: {test_results['accuracy']:.4f}")

@@ -30,9 +30,6 @@ class Config(object):
     self.device = device
     self.num_attention_layers = num_attention_layers
     self.base_data_path = Path("data/MVSA_Single")
-    self.label_path = "/Users/uttamsingh/Documents/Graduate/Fall2024/MVSA_Single/labelResultAll.csv"
-    self.text_path  = "/Users/uttamsingh/Documents/Graduate/Fall2024/MVSA_Single/data/texts"
-    self.image_path = "/Users/uttamsingh/Documents/Graduate/Fall2024/MVSA_Single/data/images"
-    # self.label_path = self.base_data_path / "labelResultAll.csv"
-    # self.text_path = self.base_data_path / "data/texts"
-    # self.image_path = self.base_data_path / "data/images"
+    self.label_path = self.base_data_path / "labelResultAll.csv"
+    self.text_path = self.base_data_path / "data/texts"
+    self.image_path = self.base_data_path / "data/images"
