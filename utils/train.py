@@ -51,12 +51,12 @@ class Trainer(object):
       # pred_labels = torch.argmax(pred_probs, dim=1)
       # print(pred_labels, targets)
 
-      # loss = 0.0
-      # for task in self.tasks:
-      #   sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
-      #   loss += sub_loss
+      loss = 0.0
+      for task in self.tasks:
+        sub_loss = self.config.loss_weights[task] * self.loss_fn(outputs[task], targets)
+        loss += sub_loss
 
-      loss = self.loss_fn(outputs['M'], targets)
+      # loss = self.loss_fn(outputs['M'], targets)
 
       train_results = self.metrics.evaluate(outputs['M'], targets)
       accuracy = train_results['accuracy']
