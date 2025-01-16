@@ -15,15 +15,15 @@ class MSAModel(nn.Module):
     self.text_sub_model = TextSubModel(config)
 
     self.fused_output_layers = nn.Sequential(
-      # nn.Dropout(config.dropout),
-      # nn.Linear(in_features=768 * 2, out_features=768),
-      # nn.ReLU(),
+      nn.Dropout(config.dropout),
+      nn.Linear(in_features=768 * 2, out_features=768),
+      nn.ReLU(),
       nn.Linear(in_features=768, out_features=512),
       nn.ReLU(),
       nn.Linear(in_features=512, out_features=3),
     )
 
-    self.fusion_model = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=768, nhead=8), num_layers=config.num_attention_layers)
+    # self.fusion_model = nn.TransformerEncoder(nn.TransformerEncoderLayer(d_model=768, nhead=8), num_layers=config.num_attention_layers)
 
   def forward(self, text_inputs: Tensor,
               text_mask: Tensor,
@@ -32,9 +32,9 @@ class MSAModel(nn.Module):
     img_output, attention_enc_img_output = self.img_sub_model(img_inputs)
     text_output, attention_enc_text_output = self.text_sub_model(text_inputs, text_mask)
 
-    concatenated_hidden_states = torch.stack((attention_enc_text_output, attention_enc_img_output), dim=1)
+    fused_features = torch.stack((attention_enc_text_output, attention_enc_img_output), dim=1)
 
-    fused_features  = self.fusion_model(concatenated_hidden_states).mean(dim=1)
+    # fused_features  = self.fusion_model(fused_features).mean(dim=1)
 
     fused_output = self.fused_output_layers(fused_features)
 

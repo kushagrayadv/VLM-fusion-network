@@ -23,7 +23,7 @@ class AttentionEncoder(nn.Module):
   def forward(self, features: Tensor, attention_mask: Tensor) -> Tensor:
     output_tensor = features
 
-    # output_tensor = self.self_attention(output_tensor, attention_mask)
+    output_tensor = self.self_attention(output_tensor, attention_mask)
     output_tensor = self.feed_forward(output_tensor)
 
     return output_tensor

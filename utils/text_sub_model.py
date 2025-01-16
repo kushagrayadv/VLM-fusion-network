@@ -17,7 +17,7 @@ class TextSubModel(BaseModel):
     output = self.output_layers(features)
 
     attention_encoder_inputs = features
-    # for layer_module in self.attention_encoder_layers:
-    #   attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
+    for layer_module in self.attention_encoder_layers:
+      attention_encoder_inputs = layer_module(attention_encoder_inputs, attention_mask=None)
 
     return output, attention_encoder_inputs
