@@ -1,18 +1,37 @@
-# machine-learning-project
+# From Pixels to Words: Transformer-Based Multimodal Sentiment
 
-## Models 
+This project explores a transformer-based multimodal approach to sentiment analysis by combining visual and textual information from social media content. The model is trained to predict sentiment from image-text pairs, achieving **70.38% accuracy** on the **MVSA-Single** dataset.
 
-Models to consider after reading survey paper -
+## Key Features
 
-  TETFN (A text enhanced transformer fusion network for multimodal sentiment analysis)
-  Auto-ML based Fusion (An automl-based approach to multimodal image sentiment analysis)
-  TIMF (Two-level multimodal fusion for sentiment analysis in public security)
-  MAG-BERT (Integrating multimodal information in large pretrained transformers)
-  BERT-like (Jointly fine-tuning” bertlike” self supervised models to improve multimodal speech emotion recognition)
-  MMML (Multimodal Multi-loss Fusion Network for Sentiment Analysis)
+- **Multimodal Fusion**: Combines visual features from images and textual features from captions for richer sentiment understanding.
+- **Transformer Backbones**:
+  - **Text**: [DeBERTa](https://huggingface.co/microsoft/deberta-base) for extracting contextual embeddings from text.
+  - **Vision**: [data2vec-vision-base](https://huggingface.co/facebook/data2vec-vision-base) for learning semantic visual features.
+- **Attention-based Fusion**: Uses a cross-attention mechanism to integrate visual and textual modalities.
+- **Multi-loss Training**: Jointly optimizes sentiment classification loss for image, text and fused modalities to improve generalization.
 
-## How to use preprocessing notebook
+## Dataset
 
-Use the preprocessing notebook to preprocess the dataset . Currently it segregates the data into image and text and same for labels. 
-1. Change the file location as per your paths in your environment.
-2. Run the notebook.
+- **MVSA-Single**: A benchmark dataset containing image-caption pairs labeled with sentiment (`positive`, `negative`, `neutral`).
+- Preprocessing includes tokenization (for text) and resizing + normalization (for images).
+
+## Tech Stack
+
+- Python
+- PyTorch
+- Hugging Face Transformers
+- torchvision
+- scikit-learn (for evaluation)
+
+## How to Run
+
+1. **Install dependencies**:
+
+   ```bash
+   pip install -r requirements.txt
+
+2. **Train the model**:
+  
+  ```bash
+    python run.py --epochs=50 --batch_size=16 --num_attention_layers=5
