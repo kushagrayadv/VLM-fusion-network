@@ -32,6 +32,11 @@ This project explores a transformer-based multimodal approach to sentiment analy
    pip install -r requirements.txt
 
 2. **Train the model**:
-  
-  ```bash
-    python run.py --epochs=50 --batch_size=16 --num_attention_layers=5
+
+   ```bash
+   python run.py --epochs=50 --batch_size=16 --num_attention_layers=5
+
+3. **Test the model**:
+
+   ```bash
+   python eval.py --batch_size=16
