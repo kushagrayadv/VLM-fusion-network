@@ -189,14 +189,16 @@ class Trainer(object):
 
 
   def test(self):
-    # TODO: uncomment it and remove the later dataloader once data loader classes are added
-    # _, _, test_dataloader = data_loader(self.config.batch_size)
-    test_dataloader = object
+    texts, labels = TextDataProcessor(self.config.label_path, self.config.text_path).get_text_with_same_labels()
+    image_list, labels = ImageDataProcessor(self.config.label_path, self.config.image_path).get_image_with_same_labels()
+    texts, image_list, labels = MultiModalDataProcessor(texts, image_list, labels).shuffle()
+    _, text_test_loader = MVSADataLoaders().get_text_dataloader(texts, labels, batch_size=self.config.batch_size)
+    _, image_test_loader = MVSADataLoaders().get_image_dataloader(image_list, batch_size=self.config.batch_size)
 
     model = MSAModel(self.config).to(self.config.device)
     model.eval()
 
     with torch.inference_mode():
       model.load_state_dict(torch.load(self.config.model_save_path + f'msa_model_best_ckpt.pth'))
-      test_results = self.test_step(model, test_dataloader, mode='Test')
+      test_results = self.test_step(model, text_test_loader, image_test_loader, mode='Test')
       print(f"\nTest results: {test_results['accuracy']:.4f}")
