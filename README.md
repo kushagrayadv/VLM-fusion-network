@@ -8,7 +8,7 @@ This project explores a transformer-based multimodal approach to sentiment analy
 - **Transformer Backbones**:
   - **Text**: [DeBERTa](https://huggingface.co/microsoft/deberta-base) for extracting contextual embeddings from text.
   - **Vision**: [data2vec-vision-base](https://huggingface.co/facebook/data2vec-vision-base) for learning semantic visual features.
-- **Attention-based Fusion**: Uses a cross-attention mechanism to integrate visual and textual modalities.
+- **Cross Attention-based Fusion**: Uses a cross-attention mechanism to integrate visual and textual modalities.
 - **Multi-loss Training**: Jointly optimizes sentiment classification loss for image, text and fused modalities to improve generalization.
 
 ## Dataset
